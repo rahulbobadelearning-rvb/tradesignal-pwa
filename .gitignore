@@ -1,0 +1,25 @@
+# Local data — never commit real invoices or the DB
+data/invoices/
+data/app.db
+
+# Security — never commit credentials, certs, or machine-specific config
+data/.credentials
+data/.smtp_config.json
+certs/
+.streamlit/config.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

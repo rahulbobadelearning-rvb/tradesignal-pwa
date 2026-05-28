@@ -1,0 +1,446 @@
+/* ============================================================
+   VARIABLES
+============================================================ */
+:root {
+  --bg:          #0a0e1a;
+  --bg-card:     #141b2d;
+  --bg-card-2:   #1a2236;
+  --accent:      #00d4aa;
+  --accent-dim:  rgba(0,212,170,0.10);
+  --bull:        #00d4aa;
+  --bear:        #ff4b4b;
+  --neutral:     #f0b429;
+  --text:        #e8eaed;
+  --text-2:      #8b94a7;
+  --text-3:      #3d4a5e;
+  --border:      rgba(255,255,255,0.055);
+  --radius:      16px;
+  --radius-sm:   10px;
+  --font:        'SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+}
+
+/* ============================================================
+   RESET & BASE
+============================================================ */
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html  { font-size:16px; scroll-behavior:smooth; }
+body  {
+  font-family:var(--font);
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+button { font-family:var(--font); }
+
+/* ============================================================
+   LAYOUT
+============================================================ */
+#app {
+  max-width:600px;
+  margin:0 auto;
+  padding:0 16px 96px;
+}
+
+/* ============================================================
+   HEADER
+============================================================ */
+.app-header {
+  position:sticky;
+  top:0;
+  z-index:100;
+  background:var(--bg);
+  padding:14px 0 12px;
+  border-bottom:1px solid var(--border);
+  margin:0 -16px;
+  padding:14px 16px 12px;
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+
+.logo {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:10px;
+}
+.logo-icon { width:32px; height:32px; flex-shrink:0; }
+.logo-text {
+  font-size:20px;
+  font-weight:800;
+  letter-spacing:-0.5px;
+  background:linear-gradient(135deg,var(--accent) 0%,#7ecbff 100%);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+
+.search-bar { display:flex; gap:8px; }
+
+.search-bar input {
+  flex:1;
+  background:var(--bg-card);
+  border:1.5px solid var(--border);
+  border-radius:var(--radius-sm);
+  padding:11px 14px;
+  color:var(--text);
+  font-size:16px;
+  font-weight:600;
+  letter-spacing:1.5px;
+  outline:none;
+  text-transform:uppercase;
+  transition:border-color .2s;
+}
+.search-bar input::placeholder {
+  text-transform:none;
+  letter-spacing:normal;
+  color:var(--text-3);
+  font-weight:400;
+}
+.search-bar input:focus { border-color:var(--accent); }
+
+.search-bar button {
+  background:var(--accent);
+  color:#0a0e1a;
+  border:none;
+  border-radius:var(--radius-sm);
+  padding:11px 22px;
+  font-size:15px;
+  font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:opacity .15s,transform .1s;
+}
+.search-bar button:hover  { opacity:.88; }
+.search-bar button:active { transform:scale(.96); }
+
+/* ============================================================
+   CARDS
+============================================================ */
+.card {
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:18px 20px;
+  margin-top:14px;
+}
+.card-title {
+  font-size:11px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:1.2px;
+  color:var(--text-2);
+  margin-bottom:14px;
+}
+
+/* ============================================================
+   WELCOME
+============================================================ */
+.welcome {
+  text-align:center;
+  padding:56px 16px 32px;
+}
+.welcome-icon { font-size:52px; display:block; margin-bottom:14px; }
+.welcome h2 { font-size:22px; font-weight:800; margin-bottom:8px; letter-spacing:-.5px; }
+.welcome p  { color:var(--text-2); line-height:1.65; font-size:15px; margin-bottom:28px; }
+
+.quick-picks { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+.quick-pick {
+  background:var(--bg-card);
+  border:1.5px solid var(--border);
+  border-radius:8px;
+  padding:8px 18px;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  color:var(--text-2);
+  letter-spacing:.5px;
+  transition:all .2s;
+}
+.quick-pick:hover {
+  border-color:var(--accent);
+  color:var(--accent);
+  background:var(--accent-dim);
+}
+
+/* ============================================================
+   LOADING
+============================================================ */
+.loading { text-align:center; padding:64px 20px; }
+.spinner {
+  width:38px; height:38px;
+  border:3px solid var(--border);
+  border-top-color:var(--accent);
+  border-radius:50%;
+  animation:spin .75s linear infinite;
+  margin:0 auto 16px;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+.loading p { color:var(--text-2); font-size:15px; }
+
+/* ============================================================
+   ERROR
+============================================================ */
+.error { text-align:center; }
+.error-icon { font-size:36px; margin-bottom:10px; }
+.error p  { color:var(--bear); font-size:15px; margin-bottom:16px; }
+.retry-btn {
+  background:var(--bg-card-2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:9px 20px;
+  color:var(--text-2);
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+/* ============================================================
+   STOCK HEADER
+============================================================ */
+.stock-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+}
+.stock-ticker { font-size:30px; font-weight:900; letter-spacing:-1.5px; }
+.stock-name   { font-size:13px; color:var(--text-2); margin-top:3px; max-width:200px;
+                overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.stock-price-block { text-align:right; }
+.stock-price  { font-size:26px; font-weight:800; letter-spacing:-1px; }
+.stock-change { font-size:14px; font-weight:700; margin-top:3px; }
+
+.positive { color:var(--bull); }
+.negative { color:var(--bear); }
+
+/* ============================================================
+   PRICE LADDER
+============================================================ */
+.price-ladder { display:flex; flex-direction:column; gap:1px; margin-bottom:10px; }
+
+.ladder-row {
+  display:flex;
+  align-items:center;
+  padding:9px 10px;
+  border-radius:8px;
+  gap:6px;
+  transition:background .15s;
+}
+.ladder-row:hover { background:var(--bg-card-2); }
+
+.ladder-row.resistance  { border-left:3px solid var(--bear); }
+.ladder-row.support     { border-left:3px solid var(--bull); }
+.ladder-row.cur-price   { border-left:3px solid var(--neutral);
+                          background:rgba(240,180,41,.05); }
+
+.ladder-label {
+  width:30px; flex-shrink:0;
+  font-size:11px; font-weight:800;
+  text-transform:uppercase; letter-spacing:.5px;
+}
+.resistance .ladder-label { color:var(--bear); }
+.support    .ladder-label { color:var(--bull); }
+.cur-price  .ladder-label { color:var(--neutral); }
+
+.ladder-bar-wrap {
+  flex:1;
+  height:3px;
+  background:rgba(255,255,255,.04);
+  border-radius:2px;
+  overflow:hidden;
+}
+.ladder-bar { height:100%; border-radius:2px; }
+.resistance .ladder-bar { background:var(--bear); }
+.support    .ladder-bar { background:var(--bull); }
+
+.ladder-price {
+  font-size:14px; font-weight:700;
+  min-width:72px; text-align:right;
+}
+
+.ladder-dist {
+  font-size:11px; color:var(--text-2);
+  min-width:46px; text-align:right;
+}
+
+.ladder-dots {
+  display:flex; gap:3px; margin-left:4px;
+}
+.dot {
+  width:5px; height:5px;
+  border-radius:50%;
+  background:var(--text-3);
+}
+.dot.on { background:var(--accent); }
+
+.sr-note {
+  font-size:11px; color:var(--text-3);
+  text-align:center; margin-top:4px;
+}
+
+/* ============================================================
+   SENTIMENT GAUGE
+============================================================ */
+.sentiment-content {
+  display:flex;
+  align-items:center;
+  gap:18px;
+}
+.gauge-wrap { flex-shrink:0; }
+
+.gauge-info { flex:1; min-width:0; }
+.bias-label {
+  font-size:24px; font-weight:900;
+  letter-spacing:-1px; line-height:1.1;
+}
+.bias-label.bullish { color:var(--bull); }
+.bias-label.bearish { color:var(--bear); }
+.bias-label.neutral { color:var(--neutral); }
+
+.bias-detail { font-size:13px; color:var(--text-2); margin-top:4px; line-height:1.4; }
+
+.sentiment-bar-wrap {
+  margin-top:12px;
+  height:6px;
+  background:var(--bg-card-2);
+  border-radius:3px;
+  overflow:hidden;
+}
+.sentiment-bar { height:100%; border-radius:3px; transition:width .9s ease,background .4s; }
+
+.sentiment-labels {
+  display:flex;
+  justify-content:space-between;
+  margin-top:5px;
+  font-size:10px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.5px;
+}
+
+/* ============================================================
+   OPTIONS SIGNAL
+============================================================ */
+.signal-card.calls {
+  background:linear-gradient(135deg,rgba(0,212,170,.10),rgba(0,212,170,.03));
+  border:1px solid rgba(0,212,170,.22);
+}
+.signal-card.puts {
+  background:linear-gradient(135deg,rgba(255,75,75,.10),rgba(255,75,75,.03));
+  border:1px solid rgba(255,75,75,.22);
+}
+.signal-card.neutral-sig {
+  background:linear-gradient(135deg,rgba(240,180,41,.08),rgba(240,180,41,.02));
+  border:1px solid rgba(240,180,41,.18);
+}
+
+.signal-icon   { font-size:30px; margin-bottom:6px; display:block; }
+.signal-name   { font-size:18px; font-weight:900; margin-bottom:6px; letter-spacing:-.3px; }
+.signal-card.calls    .signal-name { color:var(--bull); }
+.signal-card.puts     .signal-name { color:var(--bear); }
+.signal-card.neutral-sig .signal-name { color:var(--neutral); }
+.signal-reason { font-size:13px; color:var(--text-2); line-height:1.55; }
+
+/* ============================================================
+   INDICATORS GRID
+============================================================ */
+.indicators-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.indicator-item {
+  background:var(--bg-card-2);
+  border-radius:var(--radius-sm);
+  padding:14px;
+}
+.ind-label {
+  font-size:10px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.9px;
+  color:var(--text-2); margin-bottom:5px;
+}
+.ind-value { font-size:22px; font-weight:900; letter-spacing:-1px; line-height:1.1; }
+.ind-sub   { font-size:11px; color:var(--text-2); margin-top:3px; }
+.ind-badge {
+  display:inline-block;
+  font-size:10px; font-weight:800;
+  padding:2px 7px;
+  border-radius:5px;
+  text-transform:uppercase;
+  letter-spacing:.5px;
+  margin-top:5px;
+}
+.bull-badge     { background:rgba(0,212,170,.14); color:var(--bull); }
+.bear-badge     { background:rgba(255,75,75,.14);  color:var(--bear); }
+.neutral-badge  { background:rgba(240,180,41,.14); color:var(--neutral); }
+
+/* ============================================================
+   INSTALL BANNER
+============================================================ */
+.install-banner {
+  position:fixed;
+  bottom:0; left:0; right:0;
+  background:var(--bg-card);
+  border-top:1px solid var(--border);
+  padding:14px 16px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  z-index:200;
+  transition:transform .3s ease;
+  padding-bottom:calc(14px + env(safe-area-inset-bottom));
+}
+.install-banner.hidden { transform:translateY(100%); }
+
+.install-banner-text { flex:1; }
+.install-banner-title { font-size:14px; font-weight:800; margin-bottom:2px; }
+.install-banner-sub   { font-size:12px; color:var(--text-2); }
+
+.install-btn {
+  background:var(--accent);
+  color:#0a0e1a;
+  border:none;
+  border-radius:8px;
+  padding:10px 18px;
+  font-size:13px; font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.dismiss-btn {
+  background:none; border:none;
+  color:var(--text-2);
+  font-size:16px; cursor:pointer;
+  padding:6px; line-height:1;
+}
+
+/* ============================================================
+   DISCLAIMER
+============================================================ */
+.disclaimer {
+  text-align:center;
+  padding:18px 4px 8px;
+  font-size:11px;
+  color:var(--text-3);
+  line-height:1.6;
+}
+
+/* ============================================================
+   UTILITIES
+============================================================ */
+.hidden { display:none !important; }
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
+@media (max-width:380px) {
+  .stock-ticker  { font-size:24px; }
+  .stock-price   { font-size:22px; }
+  .bias-label    { font-size:20px; }
+  .ind-value     { font-size:18px; }
+}
+
+@media (prefers-color-scheme:dark) {
+  /* Already dark — no-op */
+}

@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+"""
+One-time security setup for Invoice Approval Tool.
+Run this once after cloning (and again to rotate credentials):
+
+    python scripts/setup_security.py
+
+What it does:
+  1. Generates a self-signed TLS certificate (RSA-2048, valid 2 years)
+  2. Writes .streamlit/config.toml (HTTPS + localhost-only binding)
+  3. Prompts for an application password (PBKDF2-SHA256, stored locally)
+"""
+
+import getpass
+import ipaddress
+import io
+import sys
+
+# Force UTF-8 output so Unicode characters render correctly on Windows terminals
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+# Resolve project root regardless of where the script is invoked from
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT / "app"))
+
+from core.auth import credentials_configured, set_password  # noqa: E402
+
+CERTS_DIR = PROJECT_ROOT / "certs"
+STREAMLIT_CONFIG = PROJECT_ROOT / ".streamlit" / "config.toml"
+
+
+def main() -> None:
+    print()
+    print("  Invoice Approval Tool — Security Setup")
+    print("  " + "=" * 42)
+
+    print("\n[1/3] Generating self-signed HTTPS certificate ...")
+    cert_path, key_path = _generate_ssl_cert()
+    print(f"      ✓  Certificate : {cert_path}")
+    print(f"      ✓  Private key : {key_path}")
+
+    print("\n[2/3] Writing Streamlit configuration ...")
+    _write_streamlit_config(cert_path, key_path)
+    print(f"      ✓  Config written : {STREAMLIT_CONFIG}")
+
+    print("\n[3/3] Set application password ...")
+    _setup_password()
+
+    print()
+    print("  ✅  Setup complete!")
+    print("  " + "─" * 42)
+    print("  Start the app  :  streamlit run app/main.py")
+    print("  Open browser   :  https://localhost:8501")
+    print()
+    print("  ⚠   Your browser will show a certificate warning.")
+    print("      Click 'Advanced' → 'Proceed to localhost (unsafe)'.")
+    print("      This is expected for self-signed certificates.")
+    print()
+
+
+# ---------------------------------------------------------------------------
+# Certificate generation
+# ---------------------------------------------------------------------------
+
+def _generate_ssl_cert() -> tuple[Path, Path]:
+    try:
+        from cryptography import x509
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        from cryptography.x509.oid import NameOID
+    except ImportError:
+        print("  ✗  'cryptography' package is missing.")
+        print("     Run:  pip install cryptography")
+        sys.exit(1)
+
+    CERTS_DIR.mkdir(parents=True, exist_ok=True)
+    cert_path = CERTS_DIR / "cert.pem"
+    key_path = CERTS_DIR / "key.pem"
+
+    # RSA-2048 private key (NIST-recommended minimum for internal tools)
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+    now = datetime.now(timezone.utc)
+    subject = issuer = x509.Name([
+        x509.NameAttribute(NameOID.COMMON_NAME, "localhost"),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Invoice Approval Tool"),
+        x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, "Local Security"),
+    ])
+
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now)
+        .not_valid_after(now + timedelta(days=730))   # 2 years
+        .add_extension(
+            x509.SubjectAlternativeName([
+                x509.DNSName("localhost"),
+                x509.IPAddress(ipaddress.IPv4Address("127.0.0.1")),
+            ]),
+            critical=False,
+        )
+        .add_extension(
+            x509.BasicConstraints(ca=True, path_length=None),
+            critical=True,
+        )
+        .sign(key, hashes.SHA256())
+    )
+
+    # Write private key — restrict permissions where the OS supports it
+    key_pem = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.TraditionalOpenSSL,
+        serialization.NoEncryption(),
+    )
+    key_path.write_bytes(key_pem)
+    try:
+        key_path.chmod(0o600)
+    except NotImplementedError:
+        pass  # Windows: permissions managed by NTFS ACLs
+
+    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+
+    return cert_path.resolve(), key_path.resolve()
+
+
+# ---------------------------------------------------------------------------
+# Streamlit config
+# ---------------------------------------------------------------------------
+
+def _write_streamlit_config(cert_path: Path, key_path: Path) -> None:
+    STREAMLIT_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+
+    # Use forward slashes — Streamlit cross-platform path parsing handles them
+    config = f"""\
+# Auto-generated by scripts/setup_security.py
+# DO NOT commit this file — it contains machine-specific absolute paths.
+
+[server]
+# Bind to loopback only — prevents access from the local network
+address = "127.0.0.1"
+
+# TLS — encrypts browser ↔ server traffic even on localhost
+sslCertFile = "{cert_path.as_posix()}"
+sslKeyFile  = "{key_path.as_posix()}"
+
+headless = true
+enableXsrfProtection = true
+enableCORS = false
+
+[browser]
+# Do not send usage telemetry
+gatherUsageStats = false
+serverAddress = "localhost"
+
+[client]
+# Never expose Python tracebacks in the browser
+showErrorDetails = false
+
+# Hide Deploy button and reduce toolbar surface
+toolbarMode = "minimal"
+"""
+    STREAMLIT_CONFIG.write_text(config, encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Password setup
+# ---------------------------------------------------------------------------
+
+def _setup_password() -> None:
+    if credentials_configured():
+        choice = input("      A password is already set. Overwrite? [y/N]: ").strip().lower()
+        if choice != "y":
+            print("      ✓  Keeping existing password.")
+            return
+
+    while True:
+        password = getpass.getpass("      New password (min 8 characters): ")
+        confirm = getpass.getpass("      Confirm password                : ")
+        if password != confirm:
+            print("      ✗  Passwords do not match. Try again.\n")
+            continue
+        try:
+            set_password(password)
+            print("      ✓  Password set and stored securely.")
+            break
+        except ValueError as exc:
+            print(f"      ✗  {exc}\n")
+
+
+if __name__ == "__main__":
+    main()
