@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE    = 'tradesignal-v1';
+const CACHE    = 'tradesignal-v2';
 const PRECACHE = [
   './',
   './index.html',
