@@ -1,22 +1,15 @@
-name: Deploy TradeSignal to GitHub Pages
-
+name: Deploy to GitHub Pages
 on:
   push:
-    branches: [master]
-    paths:
-      - 'tradesignal/**'
-      - '.github/workflows/deploy-pages.yml'
+    branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
   id-token: write
-
 concurrency:
   group: pages
   cancel-in-progress: false
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -24,17 +17,12 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload tradesignal/ as Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v4
         with:
-          path: tradesignal/
-
-      - name: Deploy to GitHub Pages
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - uses: actions/deploy-pages@v4
         id: deployment
-        uses: actions/deploy-pages@v4
