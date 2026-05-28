@@ -24,30 +24,32 @@
       <div class="logo">
         <svg class="logo-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect width="32" height="32" rx="9" fill="#0f1629"/>
-          <!-- candlestick wicks -->
           <line x1="7"  y1="19" x2="7"  y2="23" stroke="#ff4b4b" stroke-width="1.5" stroke-linecap="round"/>
           <line x1="7"  y1="11" x2="7"  y2="14" stroke="#ff4b4b" stroke-width="1.5" stroke-linecap="round"/>
           <line x1="14" y1="8"  x2="14" y2="11" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round"/>
           <line x1="14" y1="18" x2="14" y2="20" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round"/>
           <line x1="21" y1="6"  x2="21" y2="9"  stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round"/>
           <line x1="21" y1="15" x2="21" y2="17" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round"/>
-          <!-- candlestick bodies -->
           <rect x="4"  y="14" width="6" height="5" rx="1" fill="#ff4b4b"/>
           <rect x="11" y="11" width="6" height="7" rx="1" fill="#00d4aa"/>
           <rect x="18" y="9"  width="6" height="6" rx="1" fill="#00d4aa"/>
-          <!-- trend line -->
           <polyline points="7,18 14,13 21,10 26,7" stroke="white" stroke-width="1.5"
                     fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>
         </svg>
         <span class="logo-text">TradeSignal</span>
       </div>
-      <div class="search-bar">
-        <input type="text" id="ticker-input"
-               placeholder="Enter ticker (AAPL, TSLA…)"
-               autocomplete="off" autocorrect="off"
-               autocapitalize="characters" spellcheck="false"
-               maxlength="10">
-        <button id="search-btn">Analyze</button>
+
+      <!-- Search bar + suggestions -->
+      <div class="search-wrap">
+        <div class="search-bar">
+          <input type="text" id="ticker-input"
+                 placeholder="Search ticker or company name…"
+                 autocomplete="off" autocorrect="off"
+                 autocapitalize="off" spellcheck="false"
+                 maxlength="40">
+          <button id="search-btn">Analyze</button>
+        </div>
+        <div id="suggestions" class="suggestions hidden"></div>
       </div>
     </header>
 
@@ -56,7 +58,7 @@
       <div class="welcome">
         <span class="welcome-icon">📊</span>
         <h2>Support &amp; Resistance Analyzer</h2>
-        <p>Enter any US stock ticker to get key support &amp; resistance levels, a 4-week market bias, and options trading signals — all calculated from real price data.</p>
+        <p>Search any US stock by ticker or company name to get support &amp; resistance levels, a 4-week market bias, and options trading signals.</p>
         <div class="quick-picks">
           <button class="quick-pick" onclick="quickSearch('AAPL')">AAPL</button>
           <button class="quick-pick" onclick="quickSearch('TSLA')">TSLA</button>
@@ -80,6 +82,7 @@
       <div class="error card" style="margin-top:40px;">
         <div class="error-icon">⚠️</div>
         <p id="error-msg">Something went wrong.</p>
+        <div id="error-suggestions" class="error-sug-wrap hidden"></div>
         <button class="retry-btn" onclick="retryLast()">Try Again</button>
       </div>
     </div>
@@ -96,6 +99,23 @@
         <div class="stock-price-block">
           <div id="res-price"  class="stock-price"></div>
           <div id="res-change" class="stock-change"></div>
+        </div>
+      </div>
+
+      <!-- Price Chart -->
+      <div class="card chart-card">
+        <div class="chart-header">
+          <p class="card-title" style="margin:0">Price Chart</p>
+          <div class="period-tabs" id="period-tabs">
+            <button class="period-btn" data-period="1M">1M</button>
+            <button class="period-btn" data-period="3M">3M</button>
+            <button class="period-btn active" data-period="6M">6M</button>
+            <button class="period-btn" data-period="1Y">1Y</button>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="price-chart"></canvas>
+          <div id="chart-tooltip" class="chart-tooltip hidden"></div>
         </div>
       </div>
 

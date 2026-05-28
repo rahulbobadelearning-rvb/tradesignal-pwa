@@ -116,6 +116,107 @@ button { font-family:var(--font); }
 .search-bar button:hover  { opacity:.88; }
 .search-bar button:active { transform:scale(.96); }
 
+/* Search wrap — relative so dropdown can anchor to it */
+.search-wrap { position:relative; }
+
+/* ── Autocomplete dropdown ── */
+.suggestions {
+  position:absolute;
+  top:calc(100% + 5px);
+  left:0; right:0;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  overflow:hidden;
+  z-index:300;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);
+}
+.sug-item {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:11px 14px;
+  cursor:pointer;
+  border-bottom:1px solid var(--border);
+  transition:background .12s;
+}
+.sug-item:last-child { border-bottom:none; }
+.sug-item:hover      { background:var(--bg-card-2); }
+.sug-sym  { font-size:14px; font-weight:800; color:var(--accent); min-width:52px; letter-spacing:.5px; }
+.sug-name { flex:1; font-size:13px; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sug-exch { font-size:10px; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+
+/* ── Error suggestions ── */
+.error-sug-wrap { margin:12px 0 4px; }
+.err-sug-label  { font-size:12px; color:var(--text-2); margin-bottom:8px; font-weight:600; }
+.err-sug-btn {
+  display:block;
+  width:100%;
+  background:var(--bg-card-2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:9px 14px;
+  color:var(--text);
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  text-align:left;
+  margin-bottom:6px;
+  transition:background .15s,border-color .15s;
+}
+.err-sug-btn:hover { background:var(--bg-card); border-color:var(--accent); color:var(--accent); }
+
+/* ============================================================
+   CHART
+============================================================ */
+.chart-card { padding:14px 16px 10px; }
+
+.chart-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:10px;
+}
+
+.period-tabs { display:flex; gap:4px; }
+.period-btn {
+  background:transparent;
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:5px 10px;
+  font-size:12px;
+  font-weight:700;
+  color:var(--text-2);
+  cursor:pointer;
+  transition:all .15s;
+  letter-spacing:.3px;
+}
+.period-btn:hover       { border-color:var(--accent); color:var(--accent); }
+.period-btn.active      { background:var(--accent); border-color:var(--accent); color:#0a0e1a; }
+
+.chart-wrap {
+  position:relative;
+  width:100%;
+  border-radius:8px;
+  overflow:hidden;
+  background:var(--bg-card);
+}
+.chart-wrap canvas { display:block; width:100%; }
+
+.chart-tooltip {
+  position:absolute;
+  background:rgba(15,22,41,.92);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:6px 10px;
+  font-size:12px;
+  line-height:1.5;
+  pointer-events:none;
+  white-space:nowrap;
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+
 /* ============================================================
    CARDS
 ============================================================ */
