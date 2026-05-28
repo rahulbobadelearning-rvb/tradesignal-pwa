@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Stock support & resistance analyzer for short-term trading and options">
+  <meta name="theme-color" content="#00d4aa">
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TradeSignal">
+
+  <title>TradeSignal</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ── Header ──────────────────────────────────────────── -->
+    <header class="app-header">
+      <div class="logo">
+        <svg class="logo-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="9" fill="#0f1629"/>
+          <!-- candlestick wicks -->
+          <line x1="7"  y1="19" x2="7"  y2="23" stroke="#ff4b4b" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="7"  y1="11" x2="7"  y2="14" stroke="#ff4b4b" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="14" y1="8"  x2="14" y2="11" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="14" y1="18" x2="14" y2="20" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="21" y1="6"  x2="21" y2="9"  stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="21" y1="15" x2="21" y2="17" stroke="#00d4aa" stroke-width="1.5" stroke-linecap="round"/>
+          <!-- candlestick bodies -->
+          <rect x="4"  y="14" width="6" height="5" rx="1" fill="#ff4b4b"/>
+          <rect x="11" y="11" width="6" height="7" rx="1" fill="#00d4aa"/>
+          <rect x="18" y="9"  width="6" height="6" rx="1" fill="#00d4aa"/>
+          <!-- trend line -->
+          <polyline points="7,18 14,13 21,10 26,7" stroke="white" stroke-width="1.5"
+                    fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>
+        </svg>
+        <span class="logo-text">TradeSignal</span>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="ticker-input"
+               placeholder="Enter ticker (AAPL, TSLA…)"
+               autocomplete="off" autocorrect="off"
+               autocapitalize="characters" spellcheck="false"
+               maxlength="10">
+        <button id="search-btn">Analyze</button>
+      </div>
+    </header>
+
+    <!-- ── Welcome ──────────────────────────────────────────── -->
+    <div id="welcome-state">
+      <div class="welcome">
+        <span class="welcome-icon">📊</span>
+        <h2>Support &amp; Resistance Analyzer</h2>
+        <p>Enter any US stock ticker to get key support &amp; resistance levels, a 4-week market bias, and options trading signals — all calculated from real price data.</p>
+        <div class="quick-picks">
+          <button class="quick-pick" onclick="quickSearch('AAPL')">AAPL</button>
+          <button class="quick-pick" onclick="quickSearch('TSLA')">TSLA</button>
+          <button class="quick-pick" onclick="quickSearch('NVDA')">NVDA</button>
+          <button class="quick-pick" onclick="quickSearch('SPY')">SPY</button>
+          <button class="quick-pick" onclick="quickSearch('QQQ')">QQQ</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Loading ──────────────────────────────────────────── -->
+    <div id="loading-state" class="hidden">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p id="loading-msg">Fetching market data…</p>
+      </div>
+    </div>
+
+    <!-- ── Error ────────────────────────────────────────────── -->
+    <div id="error-state" class="hidden">
+      <div class="error card" style="margin-top:40px;">
+        <div class="error-icon">⚠️</div>
+        <p id="error-msg">Something went wrong.</p>
+        <button class="retry-btn" onclick="retryLast()">Try Again</button>
+      </div>
+    </div>
+
+    <!-- ── Results ──────────────────────────────────────────── -->
+    <div id="results-state" class="hidden">
+
+      <!-- Stock header -->
+      <div class="card stock-header">
+        <div>
+          <div id="res-ticker" class="stock-ticker"></div>
+          <div id="res-name"   class="stock-name"></div>
+        </div>
+        <div class="stock-price-block">
+          <div id="res-price"  class="stock-price"></div>
+          <div id="res-change" class="stock-change"></div>
+        </div>
+      </div>
+
+      <!-- Support & Resistance -->
+      <div class="card">
+        <p class="card-title">Support &amp; Resistance</p>
+        <div id="sr-ladder" class="price-ladder"></div>
+        <p class="sr-note">Swing high/low + weekly pivot levels · last 60 trading days</p>
+      </div>
+
+      <!-- Sentiment gauge -->
+      <div class="card">
+        <p class="card-title">4-Week Market Outlook</p>
+        <div class="sentiment-content">
+          <div class="gauge-wrap">
+            <div id="sentiment-gauge"></div>
+          </div>
+          <div class="gauge-info">
+            <div id="sentiment-bias"   class="bias-label"></div>
+            <div id="sentiment-detail" class="bias-detail"></div>
+            <div class="sentiment-bar-wrap">
+              <div id="sentiment-bar" class="sentiment-bar" style="width:50%"></div>
+            </div>
+            <div class="sentiment-labels">
+              <span style="color:#ff4b4b">Bearish</span>
+              <span style="color:#f0b429">Neutral</span>
+              <span style="color:#00d4aa">Bullish</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Options signal -->
+      <div id="options-card" class="card signal-card neutral-sig"></div>
+
+      <!-- Key indicators -->
+      <div class="card">
+        <p class="card-title">Key Indicators</p>
+        <div id="indicators-grid" class="indicators-grid"></div>
+      </div>
+
+      <p class="disclaimer">
+        For educational purposes only — not financial advice.<br>
+        Past performance does not guarantee future results. Do your own research.
+      </p>
+    </div>
+
+  </div><!-- /#app -->
+
+  <!-- ── Install Banner ───────────────────────────────────── -->
+  <div id="install-banner" class="install-banner hidden">
+    <div class="install-banner-text">
+      <div class="install-banner-title">Install TradeSignal</div>
+      <div class="install-banner-sub">Add to home screen for quick access</div>
+    </div>
+    <button id="install-btn"      class="install-btn">Install</button>
+    <button id="dismiss-install"  class="dismiss-btn" aria-label="Dismiss">✕</button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
