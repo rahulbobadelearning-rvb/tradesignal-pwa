@@ -64,13 +64,13 @@ async function fetchStockData(ticker) {
 
 /* ── Chart data (cached per period) ── */
 const PERIOD_PARAMS = {
+  '1D': 'interval=5m&range=1d',
+  '1W': 'interval=60m&range=5d',
   '1M': 'interval=1d&range=1mo',
   '3M': 'interval=1d&range=3mo',
-  '6M': 'interval=1d&range=6mo',
-  '1Y': 'interval=1d&range=1y',
 };
 
-const chartCache = {};   // { AAPL_6M: { closes, timestamps, volumes } }
+const chartCache = {};
 
 async function fetchChartData(ticker, period) {
   const key = `${ticker}_${period}`;
@@ -84,10 +84,13 @@ async function fetchChartData(ticker, period) {
   const ts = result.timestamp || [];
   const q  = result.indicators?.quote?.[0] || {};
   const valid = ts
-    .map((t, i) => ({ t, c: q.close?.[i], v: q.volume?.[i] }))
+    .map((t, i) => ({ t, o: q.open?.[i], h: q.high?.[i], l: q.low?.[i], c: q.close?.[i], v: q.volume?.[i] }))
     .filter(d => d.c != null && !isNaN(d.c));
 
   const cd = {
+    opens:      valid.map(d => d.o || d.c),
+    highs:      valid.map(d => d.h || d.c),
+    lows:       valid.map(d => d.l || d.c),
     closes:     valid.map(d => d.c),
     timestamps: valid.map(d => d.t),
     volumes:    valid.map(d => d.v || 0),
@@ -300,7 +303,15 @@ function getOptionsSignal(sentiment, sr, currentPrice) {
 /* ============================================================
    CHART
 ============================================================ */
-let activeChart = { ticker: '', period: '6M', sr: null };
+let activeChart = { ticker: '', period: '1M', sr: null, type: 'line' };
+
+function switchChartType(type) {
+  document.querySelectorAll('.chart-type-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.type === type));
+  activeChart.type = type;
+  const key = `${activeChart.ticker}_${activeChart.period}`;
+  if (chartCache[key]) drawChart(chartCache[key], activeChart.sr);
+}
 
 async function switchPeriod(period) {
   document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.dataset.period === period));
@@ -321,14 +332,15 @@ function drawChart(cd, sr) {
   const canvas  = document.getElementById('price-chart');
   const tooltip = document.getElementById('chart-tooltip');
   const { closes, timestamps, volumes } = cd;
+  const opens = cd.opens || closes;
+  const highs = cd.highs || closes;
+  const lows  = cd.lows  || closes;
 
-  const dpr  = window.devicePixelRatio || 1;
-  const W    = canvas.parentElement.clientWidth;
-  const H    = 210;
-  canvas.width  = W * dpr;
-  canvas.height = H * dpr;
-  canvas.style.width  = W + 'px';
-  canvas.style.height = H + 'px';
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.parentElement.clientWidth;
+  const H   = 210;
+  canvas.width  = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
 
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
@@ -337,103 +349,94 @@ function drawChart(cd, sr) {
   const cW = W - PAD_L - PAD_R;
   const cH = H - PAD_T - PAD_B - VOL_H - 4;
 
-  const minC = Math.min(...closes), maxC = Math.max(...closes);
+  const minC = Math.min(...lows), maxC = Math.max(...highs);
   const priceSpan = maxC - minC || 1;
   const maxV = Math.max(...volumes) || 1;
 
-  const toX  = i  => PAD_L + (i / Math.max(closes.length - 1, 1)) * cW;
-  const toY  = v  => PAD_T + (1 - (v - minC) / priceSpan) * cH;
-  const toVY = v  => H - PAD_B - (v / maxV) * VOL_H;
+  const toX  = i => PAD_L + (i / Math.max(closes.length - 1, 1)) * cW;
+  const toY  = v => PAD_T + (1 - (v - minC) / priceSpan) * cH;
+  const toVY = v => H - PAD_B - (v / maxV) * VOL_H;
 
-  const isUp  = closes[closes.length - 1] >= closes[0];
+  const isUp   = closes[closes.length - 1] >= closes[0];
   const lColor = isUp ? '#00d4aa' : '#ff4b4b';
+  const period = activeChart.period;
 
-  // Background
   ctx.fillStyle = '#141b2d';
   ctx.fillRect(0, 0, W, H);
 
-  // Subtle grid
-  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
-    const y = PAD_T + (i/4) * cH;
+    const y = PAD_T + (i / 4) * cH;
     ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y); ctx.stroke();
   }
 
-  // S/R dashed lines
   if (sr) {
-    const levels = [
-      ...sr.resistances.map(l => ({ ...l, isRes: true  })),
-      ...sr.supports   .map(l => ({ ...l, isRes: false })),
-    ];
-    levels.forEach(l => {
+    [...sr.resistances.map(l => ({ ...l, isRes: true })),
+     ...sr.supports   .map(l => ({ ...l, isRes: false }))].forEach(l => {
       const y = toY(l.level);
       if (y < PAD_T - 4 || y > PAD_T + cH + 4) return;
-      ctx.setLineDash([3, 4]);
-      ctx.lineWidth   = 1;
+      ctx.setLineDash([3, 4]); ctx.lineWidth = 1;
       ctx.strokeStyle = l.isRes ? 'rgba(255,75,75,0.5)' : 'rgba(0,212,170,0.5)';
       ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle  = l.isRes ? '#ff4b4b' : '#00d4aa';
-      ctx.font       = 'bold 9px system-ui,sans-serif';
-      ctx.textAlign  = 'left';
+      ctx.fillStyle = l.isRes ? '#ff4b4b' : '#00d4aa';
+      ctx.font = 'bold 9px system-ui,sans-serif'; ctx.textAlign = 'left';
       ctx.fillText('$' + l.level.toFixed(0), W - PAD_R + 5, y + 3);
     });
   }
 
-  // Gradient fill
-  const grad = ctx.createLinearGradient(0, PAD_T, 0, PAD_T + cH);
-  grad.addColorStop(0,   isUp ? 'rgba(0,212,170,0.22)' : 'rgba(255,75,75,0.22)');
-  grad.addColorStop(0.8, 'rgba(0,0,0,0)');
-  ctx.beginPath();
-  ctx.moveTo(toX(0), toY(closes[0]));
-  for (let i = 1; i < closes.length; i++) ctx.lineTo(toX(i), toY(closes[i]));
-  ctx.lineTo(toX(closes.length - 1), PAD_T + cH);
-  ctx.lineTo(toX(0), PAD_T + cH);
-  ctx.closePath();
-  ctx.fillStyle = grad;
-  ctx.fill();
+  if (activeChart.type === 'candle') {
+    const barW = Math.max(2, (cW / closes.length) * 0.7);
+    for (let i = 0; i < closes.length; i++) {
+      const x = toX(i), bull = closes[i] >= opens[i];
+      const color = bull ? '#00d4aa' : '#ff4b4b';
+      ctx.strokeStyle = color; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, toY(highs[i])); ctx.lineTo(x, toY(lows[i])); ctx.stroke();
+      const bodyTop = toY(Math.max(opens[i], closes[i]));
+      const bodyH   = Math.max(1, toY(Math.min(opens[i], closes[i])) - bodyTop);
+      ctx.fillStyle = bull ? 'rgba(0,212,170,0.85)' : 'rgba(255,75,75,0.85)';
+      ctx.fillRect(x - barW / 2, bodyTop, barW, bodyH);
+    }
+  } else {
+    const grad = ctx.createLinearGradient(0, PAD_T, 0, PAD_T + cH);
+    grad.addColorStop(0,   isUp ? 'rgba(0,212,170,0.22)' : 'rgba(255,75,75,0.22)');
+    grad.addColorStop(0.8, 'rgba(0,0,0,0)');
+    ctx.beginPath(); ctx.moveTo(toX(0), toY(closes[0]));
+    for (let i = 1; i < closes.length; i++) ctx.lineTo(toX(i), toY(closes[i]));
+    ctx.lineTo(toX(closes.length - 1), PAD_T + cH);
+    ctx.lineTo(toX(0), PAD_T + cH); ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(toX(0), toY(closes[0]));
+    for (let i = 1; i < closes.length; i++) ctx.lineTo(toX(i), toY(closes[i]));
+    ctx.strokeStyle = lColor; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
+  }
 
-  // Price line
-  ctx.beginPath();
-  ctx.moveTo(toX(0), toY(closes[0]));
-  for (let i = 1; i < closes.length; i++) ctx.lineTo(toX(i), toY(closes[i]));
-  ctx.strokeStyle = lColor; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
-
-  // Volume bars
-  const barW = Math.max(1, cW / closes.length - 0.5);
+  const volBarW = Math.max(1, cW / closes.length - 0.5);
   ctx.globalAlpha = 0.3;
   for (let i = 0; i < closes.length; i++) {
-    const bH = (volumes[i] / maxV) * VOL_H;
-    ctx.fillStyle = (i > 0 && closes[i] >= closes[i-1]) ? '#00d4aa' : '#ff4b4b';
-    ctx.fillRect(toX(i) - barW/2, toVY(volumes[i]), barW, bH);
+    ctx.fillStyle = (i > 0 && closes[i] >= closes[i - 1]) ? '#00d4aa' : '#ff4b4b';
+    ctx.fillRect(toX(i) - volBarW / 2, toVY(volumes[i]), volBarW, (volumes[i] / maxV) * VOL_H);
   }
   ctx.globalAlpha = 1;
 
-  // Y-axis labels
-  ctx.fillStyle = 'rgba(255,255,255,0.3)';
-  ctx.font = '9px system-ui,sans-serif';
-  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '9px system-ui,sans-serif'; ctx.textAlign = 'left';
   for (let i = 0; i <= 3; i++) {
-    const v = minC + priceSpan * (1 - i/3);
-    ctx.fillText('$' + v.toFixed(0), W - PAD_R + 5, PAD_T + (i/3)*cH + 3);
+    const v = minC + priceSpan * (1 - i / 3);
+    ctx.fillText('$' + v.toFixed(0), W - PAD_R + 5, PAD_T + (i / 3) * cH + 3);
   }
 
-  // X-axis date labels
-  ctx.fillStyle = 'rgba(255,255,255,0.22)';
-  ctx.textAlign = 'center';
-  const lblCount = 4;
-  for (let i = 0; i < lblCount; i++) {
-    const idx  = Math.round(i / (lblCount - 1) * (timestamps.length - 1));
-    const d    = new Date(timestamps[idx] * 1000);
-    const lbl  = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.textAlign = 'center';
+  for (let i = 0; i < 4; i++) {
+    const idx = Math.round(i / 3 * (timestamps.length - 1));
+    const dt  = new Date(timestamps[idx] * 1000);
+    let lbl;
+    if (period === '1D')      lbl = dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    else if (period === '1W') lbl = dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    else                      lbl = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     ctx.fillText(lbl, toX(idx), H - PAD_B + 13);
   }
 
-  // Store for tooltip
-  canvas._chart = { closes, timestamps, toX, toY, cH, PAD_T, PAD_L, PAD_R, cW, W, H, lColor };
-
-  // Touch / mouse tooltip
+  canvas._chart = { opens, highs, lows, closes, timestamps, toX, toY, cH, PAD_T, PAD_L, PAD_R, cW, W, H, lColor, type: activeChart.type, period };
   canvas.onmousemove  = e => showChartTip(e.clientX, canvas, tooltip);
   canvas.onmouseleave = () => { tooltip.classList.add('hidden'); drawChart(cd, sr); };
   canvas.ontouchmove  = e => { e.preventDefault(); showChartTip(e.touches[0].clientX, canvas, tooltip); };
@@ -445,32 +448,33 @@ function showChartTip(clientX, canvas, tooltip) {
   if (!d) return;
   const rect = canvas.getBoundingClientRect();
   const x    = clientX - rect.left;
-  const { closes, timestamps, toX, toY, cH, PAD_T, PAD_L, PAD_R, cW, W, H, lColor } = d;
+  const { opens, highs, lows, closes, timestamps, toX, toY, cH, PAD_T, PAD_L, PAD_R, cW, W, H, lColor, type, period } = d;
   const idx = Math.max(0, Math.min(closes.length - 1, Math.round((x - PAD_L) / cW * (closes.length - 1))));
+  const cx  = toX(idx), cy = toY(closes[idx]);
 
-  // Cursor vertical line
-  const cx = toX(idx), cy = toY(closes[idx]);
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
-
-  // Redraw (simple — just draw cursor on top)
-  ctx.save();
-  ctx.scale(dpr, dpr);
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([3, 3]);
+  ctx.save(); ctx.scale(dpr, dpr);
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
   ctx.beginPath(); ctx.moveTo(cx, PAD_T); ctx.lineTo(cx, PAD_T + cH); ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = lColor;
-  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = lColor; ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 
-  // Tooltip position
-  const date = new Date(timestamps[idx] * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  tooltip.innerHTML = `<span style="color:${lColor};font-weight:800">$${closes[idx].toFixed(2)}</span><br><span>${date}</span>`;
+  const dt = new Date(timestamps[idx] * 1000);
+  const dateStr = period === '1D'
+    ? dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  if (type === 'candle') {
+    const bull = closes[idx] >= opens[idx];
+    const c    = bull ? '#00d4aa' : '#ff4b4b';
+    tooltip.innerHTML = `<span style="color:${c};font-weight:800">C $${closes[idx].toFixed(2)}</span> <span style="color:rgba(255,255,255,0.5)">O $${opens[idx].toFixed(2)}</span><br><span style="color:#00d4aa">H $${highs[idx].toFixed(2)}</span> <span style="color:#ff4b4b">L $${lows[idx].toFixed(2)}</span><br><span style="color:rgba(255,255,255,0.45)">${dateStr}</span>`;
+  } else {
+    tooltip.innerHTML = `<span style="color:${lColor};font-weight:800">$${closes[idx].toFixed(2)}</span><br><span>${dateStr}</span>`;
+  }
   tooltip.classList.remove('hidden');
-  const tipLeft = Math.min(cx + 8, W - 110 - (W - PAD_R - W));
-  tooltip.style.left = Math.max(4, Math.min(tipLeft, W - 115)) + 'px';
+  tooltip.style.left = Math.max(4, Math.min(cx + 8, W - 115)) + 'px';
   tooltip.style.top  = Math.max(4, cy - 46) + 'px';
 }
 
@@ -637,18 +641,22 @@ async function analyze(ticker) {
     const sentiment = calcSentiment(stock);
     const signal    = getOptionsSignal(sentiment, sr, stock.currentPrice);
 
-    // Seed the 6M chart cache from already-fetched data
-    chartCache[`${t}_6M`] = { closes: stock.closes, timestamps: stock.timestamps, volumes: stock.volumes };
+    // Seed 3M cache from fetched data; derive 1M by slicing last ~21 trading days
+    const cut1M = Date.now() / 1000 - 31 * 24 * 3600;
+    const i1M   = stock.timestamps.findIndex(ts => ts >= cut1M);
+    const sl    = (arr, i) => arr.slice(i >= 0 ? i : 0);
+    chartCache[`${t}_3M`] = { opens: stock.opens, highs: stock.highs, lows: stock.lows, closes: stock.closes, timestamps: stock.timestamps, volumes: stock.volumes };
+    chartCache[`${t}_1M`] = { opens: sl(stock.opens, i1M), highs: sl(stock.highs, i1M), lows: sl(stock.lows, i1M), closes: sl(stock.closes, i1M), timestamps: sl(stock.timestamps, i1M), volumes: sl(stock.volumes, i1M) };
 
     // Reset chart state
     activeChart.ticker = t;
-    activeChart.period = '6M';
+    activeChart.period = '1M';
     activeChart.sr     = sr;
     document.querySelectorAll('.period-btn').forEach(b =>
-      b.classList.toggle('active', b.dataset.period === '6M'));
+      b.classList.toggle('active', b.dataset.period === '1M'));
 
     renderStockHeader(stock);
-    drawChart(chartCache[`${t}_6M`], sr);
+    drawChart(chartCache[`${t}_1M`], sr);
     renderPriceLadder(sr, stock.currentPrice);
     renderSentiment(sentiment);
     renderOptionsSignal(signal);
@@ -709,6 +717,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('period-tabs').addEventListener('click', e => {
     const btn = e.target.closest('.period-btn');
     if (btn && activeChart.ticker) switchPeriod(btn.dataset.period);
+  });
+
+  // Chart type tabs
+  document.getElementById('chart-type-tabs').addEventListener('click', e => {
+    const btn = e.target.closest('.chart-type-btn');
+    if (btn && activeChart.ticker) switchChartType(btn.dataset.type);
   });
 
   // Install banner

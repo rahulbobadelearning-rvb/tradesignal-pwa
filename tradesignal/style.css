@@ -194,6 +194,22 @@ button { font-family:var(--font); }
 .period-btn:hover       { border-color:var(--accent); color:var(--accent); }
 .period-btn.active      { background:var(--accent); border-color:var(--accent); color:#0a0e1a; }
 
+.chart-type-tabs { display:flex; gap:3px; }
+.chart-type-btn {
+  background:transparent;
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:5px 10px;
+  font-size:12px;
+  font-weight:700;
+  color:var(--text-2);
+  cursor:pointer;
+  transition:all .15s;
+  letter-spacing:.3px;
+}
+.chart-type-btn:hover  { border-color:var(--text-2); color:var(--text); }
+.chart-type-btn.active { background:var(--bg-card-2); border-color:var(--text-2); color:var(--text); }
+
 .chart-wrap {
   position:relative;
   width:100%;
