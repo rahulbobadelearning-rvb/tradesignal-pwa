@@ -50,7 +50,7 @@ async function fetchStockData(ticker) {
     name:          meta.shortName || meta.longName || symbol,
     currency:      meta.currency  || 'USD',
     currentPrice:  meta.regularMarketPrice || valid[valid.length - 1].c,
-    previousClose: meta.previousClose || meta.chartPreviousClose || valid[valid.length - 2]?.c,
+    previousClose: meta.previousClose || valid[valid.length - 2]?.c,
     week52High:    meta.fiftyTwoWeekHigh || meta['52WeekHigh'],
     week52Low:     meta.fiftyTwoWeekLow  || meta['52WeekLow'],
     opens:         valid.map(d => d.o),
