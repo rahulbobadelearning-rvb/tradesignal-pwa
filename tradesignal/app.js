@@ -437,6 +437,15 @@ function drawChart(cd, sr) {
   }
 
   canvas._chart = { opens, highs, lows, closes, timestamps, toX, toY, cH, PAD_T, PAD_L, PAD_R, cW, W, H, lColor, type: activeChart.type, period };
+
+  // Update header % change to reflect selected period
+  const periodChg = (closes[closes.length - 1] - closes[0]) / closes[0] * 100;
+  const chgEl = document.getElementById('res-change');
+  if (chgEl) {
+    const labels = { '1D': '1D', '1W': '1W', '1M': '1M', '3M': '3M' };
+    chgEl.textContent = `${periodChg >= 0 ? '+' : ''}${periodChg.toFixed(2)}% (${labels[period] || period})`;
+    chgEl.className = 'stock-change ' + (periodChg >= 0 ? 'positive' : 'negative');
+  }
   canvas.onmousemove  = e => showChartTip(e.clientX, canvas, tooltip);
   canvas.onmouseleave = () => { tooltip.classList.add('hidden'); drawChart(cd, sr); };
   canvas.ontouchmove  = e => { e.preventDefault(); showChartTip(e.touches[0].clientX, canvas, tooltip); };
