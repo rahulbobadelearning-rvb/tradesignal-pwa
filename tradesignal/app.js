@@ -488,6 +488,44 @@ function showChartTip(clientX, canvas, tooltip) {
 }
 
 /* ============================================================
+   OPTIONS OPEN INTEREST
+============================================================ */
+async function fetchOptionsOI(ticker) {
+  const url = `https://query2.finance.yahoo.com/v7/finance/options/${ticker}`;
+  try {
+    const data   = await fetchJSON(url);
+    const result = data?.optionChain?.result?.[0];
+    if (!result) return null;
+    const opts = result.options?.[0];
+    if (!opts) return null;
+    const callsMap = {}, putsMap = {};
+    (opts.calls || []).forEach(c => { callsMap[c.strike] = c.openInterest || 0; });
+    (opts.puts  || []).forEach(p => { putsMap[p.strike]  = p.openInterest || 0; });
+    return { callsMap, putsMap };
+  } catch { return null; }
+}
+
+function getOIForLevel(oiData, level, isResistance) {
+  if (!oiData) return null;
+  const map     = isResistance ? oiData.callsMap : oiData.putsMap;
+  const strikes = Object.keys(map).map(Number);
+  if (!strikes.length) return null;
+  let closest = strikes[0], minDiff = Math.abs(level - closest);
+  for (const s of strikes) {
+    const d = Math.abs(level - s);
+    if (d < minDiff) { minDiff = d; closest = s; }
+  }
+  return minDiff / level <= 0.025 ? map[closest] : null;
+}
+
+function fmtOI(oi) {
+  if (oi == null || oi === 0) return null;
+  if (oi >= 1_000_000) return (oi / 1_000_000).toFixed(1) + 'M OI';
+  if (oi >= 1_000)     return (oi / 1_000).toFixed(1)     + 'K OI';
+  return oi + ' OI';
+}
+
+/* ============================================================
    RENDERING
 ============================================================ */
 function fmt(num) {
@@ -506,7 +544,7 @@ function renderStockHeader(stock) {
   el.className   = 'stock-change ' + (chg >= 0 ? 'positive' : 'negative');
 }
 
-function renderPriceLadder(sr, currentPrice) {
+function renderPriceLadder(sr, currentPrice, oiData) {
   const { supports, resistances } = sr;
   const rows = [
     ...resistances.slice().reverse().map((l, i) => ({ ...l, type:'resistance', label:`R${resistances.length - i}` })),
@@ -522,12 +560,18 @@ function renderPriceLadder(sr, currentPrice) {
         <span class="ladder-price">$${fmt(row.level)}</span>
         <span class="ladder-dist">current</span>
         <div class="ladder-dots"></div>
+        <span class="ladder-oi"></span>
       </div>`;
-    const dist    = Math.abs(row.level - currentPrice);
-    const distPct = (dist / currentPrice * 100).toFixed(2);
-    const barPct  = Math.round(dist / maxDist * 100);
-    const arrow   = row.type === 'resistance' ? '↑' : '↓';
-    const dots    = [1,2,3].map(i => `<div class="dot${i <= Math.min(row.strength,3) ? ' on':''}"></div>`).join('');
+    const dist      = Math.abs(row.level - currentPrice);
+    const distPct   = (dist / currentPrice * 100).toFixed(2);
+    const barPct    = Math.round(dist / maxDist * 100);
+    const arrow     = row.type === 'resistance' ? '↑' : '↓';
+    const dots      = [1,2,3].map(i => `<div class="dot${i <= Math.min(row.strength,3) ? ' on':''}"></div>`).join('');
+    const isRes     = row.type === 'resistance';
+    const oi        = getOIForLevel(oiData, row.level, isRes);
+    const oiStr     = fmtOI(oi);
+    const oiColor   = isRes ? 'var(--bear)' : 'var(--bull)';
+    const oiBadge   = oiStr ? `<span class="ladder-oi" style="color:${oiColor}">${oiStr}</span>` : `<span class="ladder-oi"></span>`;
     return `
       <div class="ladder-row ${row.type}">
         <span class="ladder-label">${row.label}</span>
@@ -535,6 +579,7 @@ function renderPriceLadder(sr, currentPrice) {
         <span class="ladder-price">$${fmt(row.level)}</span>
         <span class="ladder-dist">${arrow}${distPct}%</span>
         <div class="ladder-dots">${dots}</div>
+        ${oiBadge}
       </div>`;
   }).join('');
 }
@@ -664,9 +709,12 @@ async function analyze(ticker) {
     document.querySelectorAll('.period-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.period === '1M'));
 
+    setLoadingMsg('Fetching options data…');
+    const oiData = await fetchOptionsOI(t);
+
     renderStockHeader(stock);
     drawChart(chartCache[`${t}_1M`], sr);
-    renderPriceLadder(sr, stock.currentPrice);
+    renderPriceLadder(sr, stock.currentPrice, oiData);
     renderSentiment(sentiment);
     renderOptionsSignal(signal);
     renderIndicators(sentiment);

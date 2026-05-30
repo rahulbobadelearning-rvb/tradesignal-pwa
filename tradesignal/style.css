@@ -382,6 +382,12 @@ button { font-family:var(--font); }
   min-width:46px; text-align:right;
 }
 
+.ladder-oi {
+  font-size:10px; font-weight:700;
+  min-width:54px; text-align:right;
+  letter-spacing:.2px;
+}
+
 .ladder-dots {
   display:flex; gap:3px; margin-left:4px;
 }
