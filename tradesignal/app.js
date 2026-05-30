@@ -491,18 +491,22 @@ function showChartTip(clientX, canvas, tooltip) {
    OPTIONS OPEN INTEREST
 ============================================================ */
 async function fetchOptionsOI(ticker) {
-  const url = `https://query2.finance.yahoo.com/v7/finance/options/${ticker}`;
-  try {
-    const data   = await fetchJSON(url);
-    const result = data?.optionChain?.result?.[0];
-    if (!result) return null;
-    const opts = result.options?.[0];
-    if (!opts) return null;
-    const callsMap = {}, putsMap = {};
-    (opts.calls || []).forEach(c => { callsMap[c.strike] = c.openInterest || 0; });
-    (opts.puts  || []).forEach(p => { putsMap[p.strike]  = p.openInterest || 0; });
-    return { callsMap, putsMap };
-  } catch { return null; }
+  // Try both query endpoints for reliability
+  for (const host of ['query1', 'query2']) {
+    const url = `https://${host}.finance.yahoo.com/v7/finance/options/${ticker}?formatted=false`;
+    try {
+      const data   = await fetchJSON(url);
+      const result = data?.optionChain?.result?.[0];
+      if (!result) continue;
+      const opts = result.options?.[0];
+      if (!opts) continue;
+      const callsMap = {}, putsMap = {};
+      (opts.calls || []).forEach(c => { if (c.openInterest > 0) callsMap[c.strike] = c.openInterest; });
+      (opts.puts  || []).forEach(p => { if (p.openInterest > 0) putsMap[p.strike]  = p.openInterest; });
+      if (Object.keys(callsMap).length || Object.keys(putsMap).length) return { callsMap, putsMap };
+    } catch { /* try next */ }
+  }
+  return null;
 }
 
 function getOIForLevel(oiData, level, isResistance) {
@@ -515,7 +519,7 @@ function getOIForLevel(oiData, level, isResistance) {
     const d = Math.abs(level - s);
     if (d < minDiff) { minDiff = d; closest = s; }
   }
-  return minDiff / level <= 0.025 ? map[closest] : null;
+  return minDiff / level <= 0.04 ? map[closest] : null;
 }
 
 function fmtOI(oi) {
