@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE    = 'tradesignal-v2';
+const CACHE    = 'tradesignal-v3';
 const PRECACHE = [
   './',
   './index.html',
@@ -39,7 +39,8 @@ self.addEventListener('fetch', event => {
   if (
     url.includes('finance.yahoo.com') ||
     url.includes('corsproxy.io')      ||
-    url.includes('allorigins.win')
+    url.includes('allorigins.win')    ||
+    url.includes('unpkg.com')
   ) {
     return; // fall through to network
   }

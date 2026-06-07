@@ -175,7 +175,7 @@ button { font-family:var(--font); }
   display:flex;
   align-items:center;
   justify-content:space-between;
-  margin-bottom:10px;
+  margin-bottom:8px;
 }
 
 .period-tabs { display:flex; gap:4px; }
@@ -210,27 +210,98 @@ button { font-family:var(--font); }
 .chart-type-btn:hover  { border-color:var(--text-2); color:var(--text); }
 .chart-type-btn.active { background:var(--bg-card-2); border-color:var(--text-2); color:var(--text); }
 
+/* Indicator pills */
+.indicator-pills {
+  display:flex;
+  gap:5px;
+  padding:4px 0 8px;
+  flex-wrap:wrap;
+  transition:opacity .2s;
+}
+.pill {
+  background:transparent;
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:3px 10px;
+  font-size:11px;
+  font-weight:700;
+  color:var(--text-3);
+  cursor:pointer;
+  transition:all .15s;
+  letter-spacing:.3px;
+}
+.pill:hover { border-color:var(--text-2); color:var(--text-2); }
+.pill[data-ind="ema20"].active  { border-color:#f0b429; color:#f0b429; background:rgba(240,180,41,.10); }
+.pill[data-ind="ema50"].active  { border-color:#7ecbff; color:#7ecbff; background:rgba(126,203,255,.10); }
+.pill[data-ind="ema200"].active { border-color:#ff7f50; color:#ff7f50; background:rgba(255,127,80,.10); }
+.pill[data-ind="bb"].active     { border-color:#9b59b6; color:#9b59b6; background:rgba(155,89,182,.10); }
+
 .chart-wrap {
   position:relative;
   width:100%;
   border-radius:8px;
   overflow:hidden;
-  background:var(--bg-card);
+  background:#141b2d;
 }
-.chart-wrap canvas { display:block; width:100%; }
 
-.chart-tooltip {
+.chart-container {
+  width:100%;
+  height:270px;
+  display:block;
+}
+
+/* Live legend overlay */
+.chart-legend {
   position:absolute;
-  background:rgba(15,22,41,.92);
-  border:1px solid var(--border);
-  border-radius:8px;
-  padding:6px 10px;
-  font-size:12px;
-  line-height:1.5;
+  top:6px;
+  left:8px;
+  z-index:10;
   pointer-events:none;
-  white-space:nowrap;
-  backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px);
+  background:rgba(20,27,45,.82);
+  padding:4px 8px;
+  border-radius:6px;
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  max-width:calc(100% - 72px);
+}
+.leg-row {
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  align-items:center;
+}
+.leg-main  { font-size:13px; font-weight:800; }
+.leg-item  { font-size:10px; color:rgba(255,255,255,.55); }
+.leg-date  { font-size:10px; color:rgba(255,255,255,.32); margin-top:1px; }
+
+/* Buy / sell pressure row in legend */
+.leg-buysell {
+  display:flex;
+  align-items:center;
+  gap:5px;
+  font-size:10px;
+  font-weight:700;
+  margin-top:3px;
+}
+.leg-vol-bar {
+  flex:1;
+  height:3px;
+  background:rgba(255,75,75,.35);
+  border-radius:2px;
+  overflow:hidden;
+  min-width:36px;
+  max-width:72px;
+}
+.leg-vol-bar span {
+  display:block;
+  height:100%;
+  border-radius:2px;
+}
+.leg-vol-total {
+  font-size:9px;
+  color:rgba(255,255,255,.3);
+  font-weight:600;
+  margin-left:2px;
 }
 
 /* ============================================================

@@ -116,9 +116,15 @@
             <button class="chart-type-btn" data-type="candle">Candle</button>
           </div>
         </div>
+        <div class="indicator-pills" id="indicator-pills">
+          <button class="pill active" data-ind="ema20">EMA 20</button>
+          <button class="pill active" data-ind="ema50">EMA 50</button>
+          <button class="pill" data-ind="ema200">EMA 200</button>
+          <button class="pill" data-ind="bb">BB</button>
+        </div>
         <div class="chart-wrap">
-          <canvas id="price-chart"></canvas>
-          <div id="chart-tooltip" class="chart-tooltip hidden"></div>
+          <div id="chart-legend" class="chart-legend" style="display:none"></div>
+          <div id="price-chart" class="chart-container"></div>
         </div>
       </div>
 
@@ -178,6 +184,7 @@
     <button id="dismiss-install"  class="dismiss-btn" aria-label="Dismiss">✕</button>
   </div>
 
+  <script src="https://unpkg.com/lightweight-charts@4.1.7/dist/lightweight-charts.standalone.production.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
