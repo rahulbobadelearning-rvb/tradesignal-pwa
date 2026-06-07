@@ -535,47 +535,51 @@ function drawChart(cd, sr) {
     }));
   }
 
-  /* Indicators — only for daily periods */
+  /* Indicators — available on all timeframes */
   const pillsEl = document.getElementById('indicator-pills');
-  if (isIntraday) {
-    if (pillsEl) { pillsEl.style.opacity = '0.35'; pillsEl.style.pointerEvents = 'none'; }
-  } else {
-    if (pillsEl) { pillsEl.style.opacity = '1'; pillsEl.style.pointerEvents = ''; }
+  if (pillsEl) { pillsEl.style.opacity = '1'; pillsEl.style.pointerEvents = ''; }
 
-    /* Use full 1Y stock data for better EMA accuracy; filter to chart window */
-    const base    = activeChart.stock;
-    const fCloses = base ? base.closes     : closes;
-    const fTs     = base ? base.timestamps : timestamps;
+  // Daily intervals: use full 1Y stock data for better EMA seeding + tsMap filter
+  // Intraday intervals: calculate directly from chart closes
+  const base    = (!isIntraday && activeChart.stock) ? activeChart.stock : null;
+  const fCloses = base ? base.closes     : closes;
+  const fTs     = base ? base.timestamps : timestamps;
 
-    const e20   = ema(fCloses, indicatorSettings.ema20);
-    const e50   = ema(fCloses, indicatorSettings.ema50);
-    const e200  = ema(fCloses, indicatorSettings.ema200);
-    const bbArr = calcBB(fCloses, indicatorSettings.bbPeriod, indicatorSettings.bbMult);
+  const e20   = ema(fCloses, indicatorSettings.ema20);
+  const e50   = ema(fCloses, indicatorSettings.ema50);
+  const e200  = ema(fCloses, indicatorSettings.ema200);
+  const bbArr = calcBB(fCloses, indicatorSettings.bbPeriod, indicatorSettings.bbMult);
 
-    const tsMap  = new Map(fTs.map((t, i) => [t, i]));
-    const indPts = valFn => timestamps.map(ts => {
-      const fi = tsMap.get(ts);
-      if (fi === undefined) return null;
-      const v = valFn(fi);
-      return (v != null && !isNaN(v)) ? { time: toTime(ts), value: v } : null;
-    }).filter(Boolean);
+  const makeIndPts = base
+    ? (() => {
+        const tsMap = new Map(fTs.map((t, i) => [t, i]));
+        return valFn => timestamps.map(ts => {
+          const fi = tsMap.get(ts);
+          if (fi === undefined) return null;
+          const v = valFn(fi);
+          return (v != null && !isNaN(v)) ? { time: toTime(ts), value: v } : null;
+        }).filter(Boolean);
+      })()
+    : valFn => timestamps.map((ts, i) => {
+        const v = valFn(i);
+        return (v != null && !isNaN(v)) ? { time: toTime(ts), value: v } : null;
+      }).filter(Boolean);
 
-    lwInd.ema20   = addIndSeries(CHART_COLORS.ema20,   1.5);
-    lwInd.ema50   = addIndSeries(CHART_COLORS.ema50,   1.5);
-    lwInd.ema200  = addIndSeries(CHART_COLORS.ema200,  2);
-    lwInd.bbUpper = addIndSeries(CHART_COLORS.bbUpper, 1, LightweightCharts.LineStyle.Dashed);
-    lwInd.bbMid   = addIndSeries(CHART_COLORS.bbMid,   1);
-    lwInd.bbLower = addIndSeries(CHART_COLORS.bbLower, 1, LightweightCharts.LineStyle.Dashed);
+  lwInd.ema20   = addIndSeries(CHART_COLORS.ema20,   1.5);
+  lwInd.ema50   = addIndSeries(CHART_COLORS.ema50,   1.5);
+  lwInd.ema200  = addIndSeries(CHART_COLORS.ema200,  2);
+  lwInd.bbUpper = addIndSeries(CHART_COLORS.bbUpper, 1, LightweightCharts.LineStyle.Dashed);
+  lwInd.bbMid   = addIndSeries(CHART_COLORS.bbMid,   1);
+  lwInd.bbLower = addIndSeries(CHART_COLORS.bbLower, 1, LightweightCharts.LineStyle.Dashed);
 
-    lwInd.ema20.setData(indPts(i => e20[i]));
-    lwInd.ema50.setData(indPts(i => e50[i]));
-    lwInd.ema200.setData(indPts(i => e200[i]));
-    lwInd.bbUpper.setData(indPts(i => bbArr[i]?.upper ?? null));
-    lwInd.bbMid.setData(indPts(i => bbArr[i]?.mid   ?? null));
-    lwInd.bbLower.setData(indPts(i => bbArr[i]?.lower ?? null));
+  lwInd.ema20.setData(makeIndPts(i => e20[i]));
+  lwInd.ema50.setData(makeIndPts(i => e50[i]));
+  lwInd.ema200.setData(makeIndPts(i => e200[i]));
+  lwInd.bbUpper.setData(makeIndPts(i => bbArr[i]?.upper ?? null));
+  lwInd.bbMid.setData(makeIndPts(i => bbArr[i]?.mid   ?? null));
+  lwInd.bbLower.setData(makeIndPts(i => bbArr[i]?.lower ?? null));
 
-    applyIndicatorVisibility();
-  }
+  applyIndicatorVisibility();
 
   /* Live legend on crosshair move */
   lwChart.subscribeCrosshairMove(param => {
