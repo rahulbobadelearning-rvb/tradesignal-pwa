@@ -62,21 +62,20 @@ async function fetchStockData(ticker) {
   };
 }
 
-/* ── Chart data (cached per period) ── */
-const PERIOD_PARAMS = {
-  '1D': 'interval=5m&range=1d',
-  '1W': 'interval=60m&range=5d',
-  '1M': 'interval=1d&range=1mo',
-  '3M': 'interval=1d&range=3mo',
-};
+/* ── Chart data (cached per period + interval) ── */
+const AUTO_INTERVAL     = { '1D':'5m',  '1W':'60m', '1M':'1d', '3M':'1d', 'YTD':'1d', '1Y':'1d' };
+const PERIOD_RANGE      = { '1D':'1d',  '1W':'5d',  '1M':'1mo','3M':'3mo','YTD':'ytd','1Y':'1y'  };
+const PERIOD_DAYS       = { '1D':1, '1W':7, '1M':31, '3M':92, 'YTD':365, '1Y':365 };
+const INTERVAL_MAX_DAYS = { '1m':7, '5m':60, '15m':60, '30m':60, '60m':730, '1d':3650 };
 
 const chartCache = {};
 
-async function fetchChartData(ticker, period) {
-  const key = `${ticker}_${period}`;
+async function fetchChartData(ticker, period, interval) {
+  const iv  = interval || AUTO_INTERVAL[period] || '1d';
+  const key = `${ticker}_${period}_${iv}`;
   if (chartCache[key]) return chartCache[key];
 
-  const url  = `${YF_BASE}${ticker}?${PERIOD_PARAMS[period]}`;
+  const url  = `${YF_BASE}${ticker}?interval=${iv}&range=${PERIOD_RANGE[period] || '1mo'}`;
   const data = await fetchJSON(url);
   const result = data?.chart?.result?.[0];
   if (!result) return null;
@@ -315,8 +314,9 @@ const CHART_COLORS = {
   bbLower: '#9b59b6',
 };
 
-let activeChart        = { ticker: '', period: '1M', sr: null, type: 'line', stock: null };
-const activeIndicators = { ema20: true, ema50: true, ema200: false, bb: false };
+let activeChart         = { ticker: '', period: '1M', sr: null, type: 'line', stock: null, interval: null };
+const activeIndicators  = { ema20: true, ema50: true, ema200: false, bb: false };
+const indicatorSettings = { ema20: 20, ema50: 50, ema200: 200, bbPeriod: 20, bbMult: 2 };
 let lwChart            = null;
 let lwMainSeries       = null;
 let lwBuyVolSeries     = null;
@@ -372,8 +372,36 @@ function switchChartType(type) {
   document.querySelectorAll('.chart-type-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.type === type));
   activeChart.type = type;
-  const key = `${activeChart.ticker}_${activeChart.period}`;
+  const iv  = activeChart.interval || AUTO_INTERVAL[activeChart.period] || '1d';
+  const key = `${activeChart.ticker}_${activeChart.period}_${iv}`;
   if (chartCache[key]) drawChart(chartCache[key], activeChart.sr);
+}
+
+function switchInterval(interval) {
+  document.querySelectorAll('.ipill').forEach(b =>
+    b.classList.toggle('active', b.dataset.int === interval));
+  activeChart.interval = interval === 'auto' ? null : interval;
+
+  // Auto-adjust period if incompatible with chosen interval
+  if (activeChart.interval) {
+    const maxDays = INTERVAL_MAX_DAYS[activeChart.interval] || 3650;
+    if ((PERIOD_DAYS[activeChart.period] || 31) > maxDays) {
+      const best = activeChart.interval === '1m' ? '1D' : '1M';
+      switchPeriod(best);
+      return;
+    }
+  }
+
+  if (!activeChart.ticker) return;
+  const iv  = activeChart.interval || AUTO_INTERVAL[activeChart.period] || '1d';
+  const key = `${activeChart.ticker}_${activeChart.period}_${iv}`;
+  if (chartCache[key]) {
+    drawChart(chartCache[key], activeChart.sr);
+  } else {
+    fetchChartData(activeChart.ticker, activeChart.period, activeChart.interval)
+      .then(cd => { if (cd) drawChart(cd, activeChart.sr); })
+      .catch(() => {});
+  }
 }
 
 async function switchPeriod(period) {
@@ -381,10 +409,20 @@ async function switchPeriod(period) {
     b.classList.toggle('active', b.dataset.period === period));
   activeChart.period = period;
 
+  // Reset interval to auto if incompatible with new period
+  if (activeChart.interval) {
+    const maxDays = INTERVAL_MAX_DAYS[activeChart.interval] || 3650;
+    if ((PERIOD_DAYS[period] || 31) > maxDays) {
+      activeChart.interval = null;
+      document.querySelectorAll('.ipill').forEach(b =>
+        b.classList.toggle('active', b.dataset.int === 'auto'));
+    }
+  }
+
   const wrap = document.getElementById('price-chart');
   wrap.style.opacity = '0.4';
   try {
-    const cd = await fetchChartData(activeChart.ticker, period);
+    const cd = await fetchChartData(activeChart.ticker, period, activeChart.interval);
     if (cd) drawChart(cd, activeChart.sr);
   } catch { /* keep existing chart */ } finally {
     wrap.style.opacity = '1';
@@ -397,7 +435,8 @@ function drawChart(cd, sr) {
   const highs = cd.highs || closes;
   const lows  = cd.lows  || closes;
 
-  const isIntraday = activeChart.period === '1D' || activeChart.period === '1W';
+  const effectiveInterval = activeChart.interval || AUTO_INTERVAL[activeChart.period] || '1d';
+  const isIntraday        = effectiveInterval !== '1d';
   const periodChg  = (closes[closes.length - 1] - closes[0]) / closes[0] * 100;
   const isUp       = periodChg >= 0;
   const toTime     = ts => isIntraday ? ts : tsToDay(ts);
@@ -508,10 +547,10 @@ function drawChart(cd, sr) {
     const fCloses = base ? base.closes     : closes;
     const fTs     = base ? base.timestamps : timestamps;
 
-    const e20   = ema(fCloses, 20);
-    const e50   = ema(fCloses, 50);
-    const e200  = ema(fCloses, 200);
-    const bbArr = calcBB(fCloses);
+    const e20   = ema(fCloses, indicatorSettings.ema20);
+    const e50   = ema(fCloses, indicatorSettings.ema50);
+    const e200  = ema(fCloses, indicatorSettings.ema200);
+    const bbArr = calcBB(fCloses, indicatorSettings.bbPeriod, indicatorSettings.bbMult);
 
     const tsMap  = new Map(fTs.map((t, i) => [t, i]));
     const indPts = valFn => timestamps.map(ts => {
@@ -571,10 +610,10 @@ function drawChart(cd, sr) {
     const bbUv  = getV('bbUpper', 'bb');
     const bbLv  = getV('bbLower', 'bb');
     const indParts = [];
-    if (e20v  != null) indParts.push(`<span class="leg-item" style="color:${CHART_COLORS.ema20}">EMA20 $${e20v.toFixed(2)}</span>`);
-    if (e50v  != null) indParts.push(`<span class="leg-item" style="color:${CHART_COLORS.ema50}">EMA50 $${e50v.toFixed(2)}</span>`);
-    if (e200v != null) indParts.push(`<span class="leg-item" style="color:${CHART_COLORS.ema200}">EMA200 $${e200v.toFixed(2)}</span>`);
-    if (bbUv  != null && bbLv != null) indParts.push(`<span class="leg-item" style="color:${CHART_COLORS.bbUpper}">BB ${bbLv.toFixed(2)}–${bbUv.toFixed(2)}</span>`);
+    if (e20v  != null) indParts.push(`<span class="leg-item" style="color:${CHART_COLORS.ema20}">EMA${indicatorSettings.ema20} $${e20v.toFixed(2)}</span>`);
+    if (e50v  != null) indParts.push(`<span class="leg-item" style="color:${CHART_COLORS.ema50}">EMA${indicatorSettings.ema50} $${e50v.toFixed(2)}</span>`);
+    if (e200v != null) indParts.push(`<span class="leg-item" style="color:${CHART_COLORS.ema200}">EMA${indicatorSettings.ema200} $${e200v.toFixed(2)}</span>`);
+    if (bbUv  != null && bbLv != null) indParts.push(`<span class="leg-item" style="color:${CHART_COLORS.bbUpper}">BB(${indicatorSettings.bbPeriod}) ${bbLv.toFixed(2)}–${bbUv.toFixed(2)}</span>`);
 
     /* Buy / sell pressure for hovered bar */
     let volHtml = '';
@@ -825,26 +864,34 @@ async function analyze(ticker) {
     const sentiment = calcSentiment(stock);
     const signal    = getOptionsSignal(sentiment, sr, stock.currentPrice);
 
-    // Seed chart caches from 1Y stock data sliced to appropriate windows
+    // Seed daily chart caches from the 1Y fetch
     const now   = Date.now() / 1000;
+    const jan1  = new Date(new Date().getFullYear(), 0, 1).getTime() / 1000;
     const cut3M = now - 92 * 24 * 3600;
     const cut1M = now - 31 * 24 * 3600;
+    const sl    = (arr, i) => arr.slice(i >= 0 ? i : 0);
+    const iYTD  = stock.timestamps.findIndex(ts => ts >= jan1);
     const i3M   = stock.timestamps.findIndex(ts => ts >= cut3M);
     const i1M   = stock.timestamps.findIndex(ts => ts >= cut1M);
-    const sl    = (arr, i) => arr.slice(i >= 0 ? i : 0);
-    chartCache[`${t}_3M`] = { opens: sl(stock.opens, i3M), highs: sl(stock.highs, i3M), lows: sl(stock.lows, i3M), closes: sl(stock.closes, i3M), timestamps: sl(stock.timestamps, i3M), volumes: sl(stock.volumes, i3M) };
-    chartCache[`${t}_1M`] = { opens: sl(stock.opens, i1M), highs: sl(stock.highs, i1M), lows: sl(stock.lows, i1M), closes: sl(stock.closes, i1M), timestamps: sl(stock.timestamps, i1M), volumes: sl(stock.volumes, i1M) };
+    const mkCd  = i => ({ opens: sl(stock.opens, i), highs: sl(stock.highs, i), lows: sl(stock.lows, i), closes: sl(stock.closes, i), timestamps: sl(stock.timestamps, i), volumes: sl(stock.volumes, i) });
+    chartCache[`${t}_1Y_1d`]  = { opens: stock.opens, highs: stock.highs, lows: stock.lows, closes: stock.closes, timestamps: stock.timestamps, volumes: stock.volumes };
+    chartCache[`${t}_YTD_1d`] = mkCd(iYTD);
+    chartCache[`${t}_3M_1d`]  = mkCd(i3M);
+    chartCache[`${t}_1M_1d`]  = mkCd(i1M);
 
     // Reset chart state
-    activeChart.ticker = t;
-    activeChart.period = '1M';
-    activeChart.sr     = sr;
-    activeChart.stock  = stock;
+    activeChart.ticker   = t;
+    activeChart.period   = '1M';
+    activeChart.sr       = sr;
+    activeChart.stock    = stock;
+    activeChart.interval = null;
     document.querySelectorAll('.period-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.period === '1M'));
+    document.querySelectorAll('.ipill').forEach(b =>
+      b.classList.toggle('active', b.dataset.int === 'auto'));
 
     renderStockHeader(stock);
-    drawChart(chartCache[`${t}_1M`], sr);
+    drawChart(chartCache[`${t}_1M_1d`], sr);
     renderPriceLadder(sr, stock.currentPrice, stock);
     renderSentiment(sentiment);
     renderOptionsSignal(signal);
@@ -917,6 +964,45 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('indicator-pills').addEventListener('click', e => {
     const pill = e.target.closest('.pill');
     if (pill && activeChart.ticker) toggleIndicator(pill.dataset.ind);
+  });
+
+  // Interval pills
+  document.getElementById('interval-pills').addEventListener('click', e => {
+    const pill = e.target.closest('.ipill');
+    if (pill) switchInterval(pill.dataset.int);
+  });
+
+  // Indicator settings gear toggle
+  document.getElementById('indicator-settings-btn').addEventListener('click', () => {
+    const panel = document.getElementById('indicator-settings-panel');
+    const gear  = document.getElementById('indicator-settings-btn');
+    panel.classList.toggle('hidden');
+    gear.classList.toggle('active', !panel.classList.contains('hidden'));
+  });
+
+  // Apply indicator settings
+  document.getElementById('apply-settings-btn').addEventListener('click', () => {
+    indicatorSettings.ema20    = Math.max(2, parseInt(document.getElementById('set-ema20').value)    || 20);
+    indicatorSettings.ema50    = Math.max(2, parseInt(document.getElementById('set-ema50').value)    || 50);
+    indicatorSettings.ema200   = Math.max(2, parseInt(document.getElementById('set-ema200').value)   || 200);
+    indicatorSettings.bbPeriod = Math.max(2, parseInt(document.getElementById('set-bbperiod').value) || 20);
+    indicatorSettings.bbMult   = Math.max(0.1, parseFloat(document.getElementById('set-bbmult').value) || 2);
+
+    // Update pill labels to reflect new periods
+    document.querySelector('.pill[data-ind="ema20"]').textContent  = `EMA ${indicatorSettings.ema20}`;
+    document.querySelector('.pill[data-ind="ema50"]').textContent  = `EMA ${indicatorSettings.ema50}`;
+    document.querySelector('.pill[data-ind="ema200"]').textContent = `EMA ${indicatorSettings.ema200}`;
+    document.querySelector('.pill[data-ind="bb"]').textContent     = `BB(${indicatorSettings.bbPeriod})`;
+
+    // Redraw with new settings
+    if (activeChart.ticker) {
+      const iv  = activeChart.interval || AUTO_INTERVAL[activeChart.period] || '1d';
+      const key = `${activeChart.ticker}_${activeChart.period}_${iv}`;
+      if (chartCache[key]) drawChart(chartCache[key], activeChart.sr);
+    }
+
+    document.getElementById('indicator-settings-panel').classList.add('hidden');
+    document.getElementById('indicator-settings-btn').classList.remove('active');
   });
 
   // Install banner
